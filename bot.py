@@ -1,7 +1,7 @@
 import os
 import requests
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 # Lấy token Telegram bot từ biến môi trường
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -18,29 +18,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Hàm xử lý mã giftcode gửi vào
 async def handle_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     code = update.message.text.strip()
-    
+
     headers = {
         "cookie": f"xb_user_id={XB_USER_ID}; xb_user_login={XB_USER_LOGIN}; xb_user_token={XB_USER_TOKEN}"
     }
     url = f"https://xworld.info/vi-VN/giftcode/check/{code}"
-    
+
     try:
         response = requests.get(url, headers=headers)
         data = response.json()
-        message = data.get("message", "Không có phản hồi từ server.")
+
+        if data.get("status") == True:
+            await update.message.reply_text(f"✅ Thành công: {data.get('msg')}")
+        else:
+            await update.message.reply_text(f"❌ Thất bại: {data.get('msg')}")
     except Exception as e:
-        message = f"Lỗi khi gửi yêu cầu: {e}"
+        await update.message.reply_text(f"⚠️ Lỗi khi xử lý: {e}")
 
-    await update.message.reply_text(message)
-
-# Khởi tạo bot và chạy
+# Hàm chính khởi động bot
 def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("giftcode", handle_code))  # Có thể xài /giftcode CODE
-    app.add_handler(CommandHandler("code", handle_code))       # Hoặc /code CODE
-    app.add_handler(CommandHandler("", handle_code))           # Hoặc gửi mã trống
-    app.add_handler(CommandHandler(None, handle_code))         # fallback
+
+    app.add_handler(CommandHandler("start", start))  # Xử lý lệnh /start
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_code))  # Xử lý giftcode
 
     app.run_polling()
 
